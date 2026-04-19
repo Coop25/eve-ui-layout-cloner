@@ -4,7 +4,24 @@ Add-Type -AssemblyName System.Drawing
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:AppRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+function Get-AppRoot {
+    if ($PSScriptRoot) {
+        return $PSScriptRoot
+    }
+
+    if ($MyInvocation.MyCommand -and $MyInvocation.MyCommand.PSObject.Properties['Path'] -and $MyInvocation.MyCommand.Path) {
+        return (Split-Path -Parent $MyInvocation.MyCommand.Path)
+    }
+
+    $baseDirectory = [System.AppDomain]::CurrentDomain.BaseDirectory
+    if (-not [string]::IsNullOrWhiteSpace($baseDirectory)) {
+        return $baseDirectory.TrimEnd('\')
+    }
+
+    return (Get-Location).Path
+}
+
+$script:AppRoot = Get-AppRoot
 $script:CachePath = Join-Path $script:AppRoot 'esi-name-cache.json'
 
 function Get-EsiNameCache {
