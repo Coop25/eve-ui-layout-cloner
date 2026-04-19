@@ -1,0 +1,48 @@
+name: Build Release EXE
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Install PS2EXE
+        shell: powershell
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module -Name ps2exe -Scope CurrentUser -Force
+
+      - name: Build standalone package
+        shell: powershell
+        run: |
+          .\Build-Standalone.ps1 -Clean
+
+      - name: Create release zip
+        shell: powershell
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+          $zipName = "EveLayoutManager-$tag-windows.zip"
+          Compress-Archive -Path .\dist\standalone\* -DestinationPath (Join-Path .\dist $zipName) -Force
+          "RELEASE_ZIP=$zipName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: eve-layout-manager-windows
+          path: dist/*.zip
+
+      - name: Attach zip to GitHub release
+        shell: powershell
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" ".\dist\$env:RELEASE_ZIP" --clobber
